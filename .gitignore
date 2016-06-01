@@ -1,0 +1,4 @@
+ChibiOS*/ext/fatfs/
+ChibiOS*/ext/lwip/
+demos/*/*/.dep/
+demos/*/*/build/
