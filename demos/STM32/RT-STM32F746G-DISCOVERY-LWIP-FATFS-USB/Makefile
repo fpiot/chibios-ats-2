@@ -105,6 +105,10 @@ include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
 # Define linker script file here
 LDSCRIPT= $(STARTUPLD)/STM32F746xG.ld
 
+# ATS sources that should be compiled by patsopt.
+ATSSRC = main.dats
+ATSCSRC = $(addprefix build/obj/, $(notdir $(ATSSRC:.dats=.c)))
+
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CSRC = $(STARTUPSRC) \
@@ -121,7 +125,8 @@ CSRC = $(STARTUPSRC) \
        $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
        $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
        $(CHIBIOS)/os/various/shell.c \
-       web/web.c usbcfg.c main.c
+       web/web.c usbcfg.c \
+       $(ATSCSRC)
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -179,17 +184,24 @@ AS   = $(TRGT)gcc -x assembler-with-cpp
 AR   = $(TRGT)ar
 OD   = $(TRGT)objdump
 SZ   = $(TRGT)size
+GDB  = $(TRGT)gdb
 HEX  = $(CP) -O ihex
 BIN  = $(CP) -O binary
+
+# ATS-specific
+ATS       = patsopt
+ATSNOWARN = -Wno-unused-label -Wno-unused-but-set-variable -Wno-implicit-function-declaration \
+            -Wno-unused-parameter -Wno-char-subscripts -Wno-unused-function
+ATSCFLAGS = -I${PATSHOME} -I${PATSHOME}/ccomp/runtime
 
 # ARM-specific options here
 AOPT =
 
 # THUMB-specific options here
-TOPT = -mthumb -DTHUMB
+TOPT = -mthumb -DTHUMB $(ATSCFLAGS)
 
 # Define C warning options here
-CWARN = -Wall -Wextra -Wundef -Wstrict-prototypes
+CWARN = -Wall $(ATSNOWARN)
 
 # Define C++ warning options here
 CPPWARN = -Wall -Wextra -Wundef
@@ -223,3 +235,10 @@ ULIBS =
 
 RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
+
+$(ATSCSRC): build/obj/%.c: %.dats
+	$(ATS) -o $@ -d $<
+
+gdbwrite: all
+	@pgrep openocd > /dev/null || (echo '### Run "sudo openocd -f interface/stlink-v2.cfg -f target/stm32f4x.cfg"' && false)
+	$(GDB) -x gdbwrite.boot build/$(PROJECT).elf

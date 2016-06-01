@@ -1,3 +1,4 @@
+%{
 /*
     ChibiOS/RT - Copyright (C) 2006-2013 Giovanni Di Sirio
 
@@ -389,3 +390,4 @@ int main(void) {
     chEvtDispatch(evhndl, chEvtWaitOneTimeout(ALL_EVENTS, MS2ST(500)));
   }
 }
+%}
