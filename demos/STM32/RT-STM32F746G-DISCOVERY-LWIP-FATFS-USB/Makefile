@@ -240,5 +240,5 @@ $(ATSCSRC): build/obj/%.c: %.dats
 	$(ATS) -o $@ -d $<
 
 gdbwrite: all
-	@pgrep openocd > /dev/null || (echo '### Run "sudo openocd -f interface/stlink-v2.cfg -f target/stm32f4x.cfg"' && false)
+	@pgrep openocd > /dev/null || (echo '### Run "sudo openocd -f board/stm32f7discovery.cfg"' && false)
 	$(GDB) -x gdbwrite.boot build/$(PROJECT).elf
