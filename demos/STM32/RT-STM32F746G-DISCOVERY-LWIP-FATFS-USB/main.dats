@@ -1,5 +1,4 @@
-%{
-/*
+(*
     ChibiOS/RT - Copyright (C) 2006-2013 Giovanni Di Sirio
 
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,8 +12,9 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-*/
+*)
 
+%{^
 #include <stdio.h>
 #include <string.h>
 
@@ -32,13 +32,6 @@
 
 #include "usbcfg.h"
 
-/*===========================================================================*/
-/* Card insertion monitor.                                                   */
-/*===========================================================================*/
-
-#define POLLING_INTERVAL                10
-#define POLLING_DELAY                   10
-
 /**
  * @brief   Card monitor timer.
  */
@@ -54,6 +47,58 @@ static unsigned cnt;
  */
 static event_source_t inserted_event, removed_event;
 
+/*===========================================================================*/
+/* Card insertion monitor.                                                   */
+/*===========================================================================*/
+
+#define POLLING_INTERVAL                10
+#define POLLING_DELAY                   10
+
+#define ats_blkIsInserted(p) blkIsInserted((BaseBlockDevice *) p)
+%}
+
+#include "share/atspre_define.hats"
+#include "share/atspre_staload.hats"
+staload UN = "prelude/SATS/unsafe.sats"
+
+#define POLLING_INTERVAL                10
+#define POLLING_DELAY                   10
+
+abst@ype BaseBlockDevice = $extype"BaseBlockDevice"
+abst@ype event_source_t  = $extype"event_source_t"
+
+macdef inserted_event_p = $extval(cPtr0(event_source_t), "&inserted_event")
+macdef removed_event_p  = $extval(cPtr0(event_source_t), "&removed_event")
+
+extern fun chSysLockFromISR (): void = "mac#"
+extern fun chSysUnlockFromISR (): void = "mac#"
+extern fun chEvtBroadcastI (cPtr0(event_source_t)): void = "mac#"
+extern fun blkIsInserted (cPtr0(BaseBlockDevice)): bool = "mac#ats_blkIsInserted"
+extern fun tmrfunc_c (ptr): void = "mac#"
+extern fun tmrfunc (ptr): void = "mac#"
+
+implement tmrfunc (p) = {
+  val bbdp = $UN.cast{cPtr0(BaseBlockDevice)}(p)
+
+  val () = chSysLockFromISR ()
+  val cnt = $extval(int, "cnt")
+  val () = if cnt > 0 then
+             if blkIsInserted (bbdp) then {
+               extvar "cnt" = cnt - 1
+               val cnt = $extval(int, "cnt")
+               val () = if cnt = 0 then chEvtBroadcastI (inserted_event_p)
+             } else {
+               extvar "cnt" = POLLING_INTERVAL
+             }
+           else if ~blkIsInserted(bbdp) then {
+             extvar "cnt" = POLLING_INTERVAL
+             val () = chEvtBroadcastI (removed_event_p)
+           }
+  val () = tmrfunc_c p
+  val () = chSysUnlockFromISR ()
+}
+
+%{$
 /**
  * @brief   Insertion monitor timer callback function.
  *
@@ -61,27 +106,9 @@ static event_source_t inserted_event, removed_event;
  *
  * @notapi
  */
-static void tmrfunc(void *p) {
+void tmrfunc_c(void *p) {
   BaseBlockDevice *bbdp = p;
-
-  chSysLockFromISR();
-  if (cnt > 0) {
-    if (blkIsInserted(bbdp)) {
-      if (--cnt == 0) {
-        chEvtBroadcastI(&inserted_event);
-      }
-    }
-    else
-      cnt = POLLING_INTERVAL;
-  }
-  else {
-    if (!blkIsInserted(bbdp)) {
-      cnt = POLLING_INTERVAL;
-      chEvtBroadcastI(&removed_event);
-    }
-  }
   chVTSetI(&tmr, MS2ST(POLLING_DELAY), tmrfunc, bbdp);
-  chSysUnlockFromISR();
 }
 
 /**
