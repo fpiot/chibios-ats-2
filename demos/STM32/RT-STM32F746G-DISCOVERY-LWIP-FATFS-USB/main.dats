@@ -62,21 +62,26 @@ static event_source_t inserted_event, removed_event;
 staload UN = "prelude/SATS/unsafe.sats"
 
 #define POLLING_INTERVAL                10
-#define POLLING_DELAY                   10
+#define POLLING_DELAY                   10U
 
 abst@ype BaseBlockDevice = $extype"BaseBlockDevice"
 abst@ype event_source_t  = $extype"event_source_t"
+abst@ype virtual_timer_t = $extype"virtual_timer_t"
+typedef systime_t = uint32
 
 macdef inserted_event_p = $extval(cPtr0(event_source_t), "&inserted_event")
 macdef removed_event_p  = $extval(cPtr0(event_source_t), "&removed_event")
+macdef tmr_p            = $extval(cPtr0(virtual_timer_t), "&tmr")
 
+extern fun MS2ST (uint): systime_t = "mac#"
 extern fun chSysLockFromISR (): void = "mac#"
 extern fun chSysUnlockFromISR (): void = "mac#"
 extern fun chEvtBroadcastI (cPtr0(event_source_t)): void = "mac#"
+extern fun chVTSetI (cPtr0(virtual_timer_t), systime_t, ptr -> void, cPtr0(BaseBlockDevice)): void = "mac#"
 extern fun blkIsInserted (cPtr0(BaseBlockDevice)): bool = "mac#ats_blkIsInserted"
-extern fun tmrfunc_c (ptr): void = "mac#"
-extern fun tmrfunc (ptr): void = "mac#"
 
+(* Insertion monitor timer callback function. *)
+extern fun tmrfunc (ptr): void = "mac#"
 implement tmrfunc (p) = {
   val bbdp = $UN.cast{cPtr0(BaseBlockDevice)}(p)
 
@@ -94,23 +99,11 @@ implement tmrfunc (p) = {
              extvar "cnt" = POLLING_INTERVAL
              val () = chEvtBroadcastI (removed_event_p)
            }
-  val () = tmrfunc_c p
+  val () = chVTSetI (tmr_p, MS2ST (POLLING_DELAY), tmrfunc, bbdp)
   val () = chSysUnlockFromISR ()
 }
 
 %{$
-/**
- * @brief   Insertion monitor timer callback function.
- *
- * @param[in] p         pointer to the @p BaseBlockDevice object
- *
- * @notapi
- */
-void tmrfunc_c(void *p) {
-  BaseBlockDevice *bbdp = p;
-  chVTSetI(&tmr, MS2ST(POLLING_DELAY), tmrfunc, bbdp);
-}
-
 /**
  * @brief   Polling monitor start.
  *
