@@ -79,6 +79,7 @@ extern fun chSysUnlockFromISR (): void = "mac#"
 extern fun chEvtBroadcastI (cPtr0(event_source_t)): void = "mac#"
 extern fun chVTSetI (cPtr0(virtual_timer_t), systime_t, ptr -> void, cPtr0(BaseBlockDevice)): void = "mac#"
 extern fun blkIsInserted (cPtr0(BaseBlockDevice)): bool = "mac#ats_blkIsInserted"
+extern fun tmr_init_c (ptr): void = "mac#"
 
 (* Insertion monitor timer callback function. *)
 extern fun tmrfunc (ptr): void = "mac#"
@@ -103,6 +104,11 @@ implement tmrfunc (p) = {
   val () = chSysUnlockFromISR ()
 }
 
+extern fun tmr_init (ptr): void = "mac#"
+implement tmr_init (p) = {
+  val () = tmr_init_c (p)
+}
+
 %{$
 /**
  * @brief   Polling monitor start.
@@ -111,7 +117,7 @@ implement tmrfunc (p) = {
  *
  * @notapi
  */
-static void tmr_init(void *p) {
+void tmr_init_c(void *p) {
 
   chEvtObjectInit(&inserted_event);
   chEvtObjectInit(&removed_event);
