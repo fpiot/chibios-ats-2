@@ -74,12 +74,14 @@ macdef removed_event_p  = $extval(cPtr0(event_source_t), "&removed_event")
 macdef tmr_p            = $extval(cPtr0(virtual_timer_t), "&tmr")
 
 extern fun MS2ST (uint): systime_t = "mac#"
+extern fun chSysLock (): void = "mac#"
+extern fun chSysUnlock (): void = "mac#"
 extern fun chSysLockFromISR (): void = "mac#"
 extern fun chSysUnlockFromISR (): void = "mac#"
 extern fun chEvtBroadcastI (cPtr0(event_source_t)): void = "mac#"
+extern fun chEvtObjectInit (cPtr0(event_source_t)): void = "mac#"
 extern fun chVTSetI (cPtr0(virtual_timer_t), systime_t, ptr -> void, cPtr0(BaseBlockDevice)): void = "mac#"
 extern fun blkIsInserted (cPtr0(BaseBlockDevice)): bool = "mac#ats_blkIsInserted"
-extern fun tmr_init_c (ptr): void = "mac#"
 
 (* Insertion monitor timer callback function. *)
 extern fun tmrfunc (ptr): void = "mac#"
@@ -104,29 +106,20 @@ implement tmrfunc (p) = {
   val () = chSysUnlockFromISR ()
 }
 
+(* Polling monitor start. *)
 extern fun tmr_init (ptr): void = "mac#"
 implement tmr_init (p) = {
-  val () = tmr_init_c (p)
+  val bbdp = $UN.cast{cPtr0(BaseBlockDevice)}(p)
+
+  val () = chEvtObjectInit (inserted_event_p)
+  val () = chEvtObjectInit (removed_event_p)
+  val () = chSysLock ()
+  extvar "cnt" = POLLING_INTERVAL
+  val () = chVTSetI (tmr_p, MS2ST (POLLING_DELAY), tmrfunc, bbdp)
+  val () = chSysUnlock ()
 }
 
 %{$
-/**
- * @brief   Polling monitor start.
- *
- * @param[in] p         pointer to an object implementing @p BaseBlockDevice
- *
- * @notapi
- */
-void tmr_init_c(void *p) {
-
-  chEvtObjectInit(&inserted_event);
-  chEvtObjectInit(&removed_event);
-  chSysLock();
-  cnt = POLLING_INTERVAL;
-  chVTSetI(&tmr, MS2ST(POLLING_DELAY), tmrfunc, p);
-  chSysUnlock();
-}
-
 /*===========================================================================*/
 /* FatFs related.                                                            */
 /*===========================================================================*/
