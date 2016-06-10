@@ -52,6 +52,7 @@
 #define __CC_H__
 
 #include <hal.h>
+#include <errno.h> // Use me instead of LWIP_PROVIDE_ERRNO
 
 typedef uint8_t         u8_t;
 typedef int8_t          s8_t;
@@ -69,6 +70,6 @@ typedef uint32_t        mem_ptr_t;
 }
 
 #define BYTE_ORDER LITTLE_ENDIAN
-#define LWIP_PROVIDE_ERRNO
+//#define LWIP_PROVIDE_ERRNO
 
 #endif /* __CC_H__ */
