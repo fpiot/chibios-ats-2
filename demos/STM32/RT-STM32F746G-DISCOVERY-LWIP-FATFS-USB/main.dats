@@ -86,7 +86,7 @@ extern fun chSysLock (!chss(chss_thread) >> chss(chss_slock) | ): void = "mac#"
 extern fun chSysUnlock (!chss(chss_slock) >> chss(chss_thread) | ): void = "mac#"
 extern fun chSysLockFromISR (!chss(chss_isr) >> chss(chss_ilock) | ): void = "mac#"
 extern fun chSysUnlockFromISR (!chss(chss_ilock) >> chss(chss_isr) | ): void = "mac#"
-extern fun chEvtBroadcastI (cPtr0(event_source_t)): void = "mac#"
+extern fun chEvtBroadcastI (!chss(chss_ilock) | cPtr0(event_source_t)): void = "mac#"
 extern fun chEvtObjectInit (!chss(chss_thread) | cPtr0(event_source_t)): void = "mac#"
 extern fun chVTSetI (cPtr0(virtual_timer_t), systime_t, vtfunc_t, cPtr0(BaseBlockDevice)): void = "mac#"
 extern fun blkIsInserted (cPtr0(BaseBlockDevice)): bool = "mac#ats_blkIsInserted"
@@ -98,18 +98,20 @@ implement tmrfunc (pss | p) = {
 
   val () = chSysLockFromISR (pss | )
   val cnt = $extval(int, "cnt")
+  prval pss2 = pss
   val () = if cnt > 0 then
              if blkIsInserted (bbdp) then {
                extvar "cnt" = cnt - 1
                val cnt = $extval(int, "cnt")
-               val () = if cnt = 0 then chEvtBroadcastI (inserted_event_p)
+               val () = if cnt = 0 then chEvtBroadcastI (pss2 | inserted_event_p)
              } else {
                extvar "cnt" = POLLING_INTERVAL
              }
            else if ~blkIsInserted(bbdp) then {
              extvar "cnt" = POLLING_INTERVAL
-             val () = chEvtBroadcastI (removed_event_p)
+             val () = chEvtBroadcastI (pss2 | removed_event_p)
            }
+  prval () = pss := pss2
   val () = chVTSetI (tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
   val () = chSysUnlockFromISR (pss | )
 }
