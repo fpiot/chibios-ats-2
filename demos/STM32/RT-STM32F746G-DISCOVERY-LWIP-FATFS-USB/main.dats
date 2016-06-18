@@ -62,11 +62,17 @@ static event_source_t inserted_event, removed_event;
 staload UN = "prelude/SATS/unsafe.sats"
 
 (* http://www.chibios.org/dokuwiki/doku.php?id=chibios:book:kernel#system_states *)
-datasort chss =
-  | chss_init | chss_thread | chss_irqsusp | chss_irqdisable | chss_irqwait | chss_isr | chss_slock | chss_ilock
-absvtype chss(s:chss)
-vtypedef chss_any = [s:chss] chss(s)
-vtypedef chss_anylock = [s:chss | s == chss_slock || s == chss_ilock] chss(s)
+#define chss_init       0
+#define chss_thread     1
+#define chss_irqsusp    2
+#define chss_irqdisable 3
+#define chss_irqwait    4
+#define chss_isr        5
+#define chss_slock      6
+#define chss_ilock      7
+absvtype chss(s:int)
+vtypedef chss_any = [s:int] chss(s)
+vtypedef chss_iclass = [s:int | s == chss_slock || s == chss_ilock] chss(s)
 
 #define POLLING_INTERVAL                10
 #define POLLING_DELAY                   10U
@@ -77,6 +83,8 @@ abst@ype virtual_timer_t = $extype"virtual_timer_t"
 typedef systime_t = uint32
 typedef vtfunc_t = ptr -> void
 
+extern praxi lemma_chss {n:int} (!chss(n)): [chss_init <= n; n <= chss_ilock] void
+
 macdef inserted_event_p = $extval(cPtr0(event_source_t), "&inserted_event")
 macdef removed_event_p  = $extval(cPtr0(event_source_t), "&removed_event")
 macdef tmr_p            = $extval(cPtr0(virtual_timer_t), "&tmr")
@@ -86,9 +94,9 @@ extern fun chSysLock (!chss(chss_thread) >> chss(chss_slock) | ): void = "mac#"
 extern fun chSysUnlock (!chss(chss_slock) >> chss(chss_thread) | ): void = "mac#"
 extern fun chSysLockFromISR (!chss(chss_isr) >> chss(chss_ilock) | ): void = "mac#"
 extern fun chSysUnlockFromISR (!chss(chss_ilock) >> chss(chss_isr) | ): void = "mac#"
-extern fun chEvtBroadcastI (!chss(chss_ilock) | cPtr0(event_source_t)): void = "mac#"
-extern fun chEvtObjectInit (!chss(chss_thread) | cPtr0(event_source_t)): void = "mac#"
-extern fun chVTSetI (cPtr0(virtual_timer_t), systime_t, vtfunc_t, cPtr0(BaseBlockDevice)): void = "mac#"
+extern fun chEvtBroadcastI (!chss_iclass | cPtr0(event_source_t)): void = "mac#"
+extern fun chEvtObjectInit (!chss_any | cPtr0(event_source_t)): void = "mac#"
+extern fun chVTSetI (!chss_iclass | cPtr0(virtual_timer_t), systime_t, vtfunc_t, cPtr0(BaseBlockDevice)): void = "mac#"
 extern fun blkIsInserted (cPtr0(BaseBlockDevice)): bool = "mac#ats_blkIsInserted"
 
 (* Insertion monitor timer callback function. *)
@@ -112,7 +120,7 @@ implement tmrfunc (pss | p) = {
              val () = chEvtBroadcastI (pss2 | removed_event_p)
            }
   prval () = pss := pss2
-  val () = chVTSetI (tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
+  val () = chVTSetI (pss | tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
   val () = chSysUnlockFromISR (pss | )
 }
 
@@ -125,7 +133,7 @@ implement tmr_init (pss | p) = {
   val () = chEvtObjectInit (pss | removed_event_p)
   val () = chSysLock (pss | )
   extvar "cnt" = POLLING_INTERVAL
-  val () = chVTSetI (tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
+  val () = chVTSetI (pss | tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
   val () = chSysUnlock (pss | )
 }
 
