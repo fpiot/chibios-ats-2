@@ -71,7 +71,7 @@ staload UN = "prelude/SATS/unsafe.sats"
 #define chss_slock      6
 #define chss_ilock      7
 absvtype chss(s:int)
-vtypedef chss_any = [s:int] chss(s)
+vtypedef chss_any = [s:int | chss_init <= s; s <= chss_ilock] chss(s)
 vtypedef chss_iclass = [s:int | s == chss_slock || s == chss_ilock] chss(s)
 
 #define POLLING_INTERVAL                10
@@ -83,7 +83,7 @@ abst@ype virtual_timer_t = $extype"virtual_timer_t"
 typedef systime_t = uint32
 typedef vtfunc_t = ptr -> void
 
-extern praxi lemma_chss {n:int} (!chss(n)): [chss_init <= n; n <= chss_ilock] void
+extern praxi lemma_chss {s:int} (!chss(s)): [chss_init <= s; s <= chss_ilock] void
 
 macdef inserted_event_p = $extval(cPtr0(event_source_t), "&inserted_event")
 macdef removed_event_p  = $extval(cPtr0(event_source_t), "&removed_event")
