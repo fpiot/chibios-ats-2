@@ -81,7 +81,7 @@ abst@ype BaseBlockDevice = $extype"BaseBlockDevice"
 abst@ype event_source_t  = $extype"event_source_t"
 abst@ype virtual_timer_t = $extype"virtual_timer_t"
 typedef systime_t = uint32
-typedef vtfunc_t = ptr -> void
+typedef vtfunc_t = (!chss(chss_isr) | ptr) -> void
 
 extern praxi lemma_chss {s:int} (!chss(s)): [chss_init <= s; s <= chss_ilock] void
 
@@ -120,7 +120,7 @@ implement tmrfunc (pss | p) = {
              val () = chEvtBroadcastI (pss2 | removed_event_p)
            }
   prval () = pss := pss2
-  val () = chVTSetI (pss | tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
+  val () = chVTSetI (pss | tmr_p, MS2ST (POLLING_DELAY), tmrfunc, bbdp)
   val () = chSysUnlockFromISR (pss | )
 }
 
@@ -133,7 +133,7 @@ implement tmr_init (pss | p) = {
   val () = chEvtObjectInit (pss | removed_event_p)
   val () = chSysLock (pss | )
   extvar "cnt" = POLLING_INTERVAL
-  val () = chVTSetI (pss | tmr_p, MS2ST (POLLING_DELAY), $UN.cast{vtfunc_t}(tmrfunc), bbdp)
+  val () = chVTSetI (pss | tmr_p, MS2ST (POLLING_DELAY), tmrfunc, bbdp)
   val () = chSysUnlock (pss | )
 }
 
